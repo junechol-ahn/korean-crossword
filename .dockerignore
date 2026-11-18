@@ -1,0 +1,10 @@
+data
+tests
+.claude
+.git
+node_modules
+*.md
+*.log
+fly.toml
+Dockerfile
+.dockerignore

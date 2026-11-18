@@ -1,0 +1,12 @@
+# 게임 데이터 (사용자·기록 DB) — 저장소에 올리지 않음
+data/
+*.db
+*.db-shm
+*.db-wal
+*.migrated
+
+node_modules/
+.claude/
+*.log
+.DS_Store
+Thumbs.db

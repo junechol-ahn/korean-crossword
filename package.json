@@ -1,0 +1,14 @@
+{
+  "name": "korean-crossword",
+  "version": "1.0.0",
+  "private": true,
+  "description": "한글 낱말 크로스워드 게임",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node tests/server-smoke.js && node tests/verify-node.js 100"
+  },
+  "engines": {
+    "node": ">=22.13"
+  }
+}

@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>낱말 크로스워드</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div id="bgTiles" aria-hidden="true"></div>
+
+  <!-- 시작하기 화면 -->
+  <section id="startScreen" class="overlay">
+    <div class="start-card">
+      <button class="user-chip" title="이름 바꾸기 · 내 기록 · 통계">👤 <span class="user-name">…</span> <span class="caret">▾</span></button>
+      <div class="logo" aria-label="낱말 크로스워드">
+        <span class="logo-tile">낱</span><span class="logo-tile">말</span>
+        <span class="logo-gap"></span>
+        <span class="logo-tile alt">십</span><span class="logo-tile alt">자</span>
+      </div>
+      <h1>낱말 크로스워드</h1>
+      <p class="subtitle">사전 속 3~6글자 낱말 30개가 가로세로로 얽혀 있어요.</p>
+
+      <div id="resumeBox" class="resume hidden">
+        <div>
+          <div class="resume-title">이전에 플레이하던 게임이 있어요</div>
+          <div id="resumeInfo" class="resume-info"></div>
+        </div>
+        <button id="resumeBtn" class="btn primary">이어하기 ▶</button>
+      </div>
+
+      <div class="modes" role="radiogroup" aria-label="난이도">
+        <button class="mode" data-mode="easy" role="radio" aria-checked="false">
+          <span class="mode-icon">🌱</span>
+          <span class="mode-name">이지</span>
+          <span class="mode-desc">글자 5개 공개</span>
+        </button>
+        <button class="mode selected" data-mode="normal" role="radio" aria-checked="true">
+          <span class="mode-icon">🌿</span>
+          <span class="mode-name">일반</span>
+          <span class="mode-desc">보통 난이도</span>
+        </button>
+        <button class="mode" data-mode="hard" role="radio" aria-checked="false">
+          <span class="mode-icon">🌳</span>
+          <span class="mode-name">하드</span>
+          <span class="mode-desc">5개 단어에 힌트 없음</span>
+        </button>
+      </div>
+      <p class="item-note">🔨 망치 3개로 시작 · 한 글자 공개 &nbsp;|&nbsp; ⏱ 어딘가 숨은 타임 어택 낱말을 10초 안에 맞히면 망치 +1 (한 판에 한 번)</p>
+
+      <button id="startBtn" class="btn primary big">시작하기</button>
+
+      <div class="start-links">
+        <button id="myRecordsBtn" class="btn ghost">📜 내 기록</button>
+        <button id="statsBtn" class="btn ghost">📊 통계</button>
+      </div>
+      <button id="verifyBtn" class="link-btn">검증 모드 실행</button>
+    </div>
+  </section>
+
+  <!-- 게임 화면 -->
+  <main id="game" class="hidden">
+    <header class="topbar">
+      <div class="brand">낱말 크로스워드</div>
+      <div class="stats">
+        <span id="modeBadge" class="badge">일반</span>
+        <span class="stat"><span class="stat-label">문제</span> <b id="puzzleId">-</b></span>
+        <span class="stat"><span class="stat-label">시간</span> <b id="timer">00:00</b></span>
+        <span class="stat"><span class="stat-label">맞힌 낱말</span> <b id="score">0 / 30</b></span>
+      </div>
+      <div class="actions">
+        <button class="user-chip small" title="이름 바꾸기 · 내 기록 · 통계">👤 <span class="user-name">…</span> <span class="caret">▾</span></button>
+        <button id="newBtn" class="btn ghost" aria-haspopup="menu">새 퍼즐 <span class="caret">▾</span></button>
+        <button id="homeBtn" class="btn ghost">처음으로</button>
+      </div>
+    </header>
+    <div class="progress"><div id="progressBar"></div></div>
+
+    <div class="layout">
+      <section class="board-wrap">
+        <div class="clue-row">
+          <div id="currentClue" class="current-clue">
+            <span class="cc-num"></span><span class="cc-text">칸을 눌러 시작하세요</span>
+          </div>
+          <button id="hammerBtn" class="hammer-btn" title="망치: 커서 칸의 글자 하나 공개">
+            <span class="hammer-icon">🔨</span><span class="hammer-x">×</span><span id="hammerCount">3</span>
+          </button>
+        </div>
+        <div id="bonusBar" class="bonus-bar">
+          <span>⏱ 타임 어택 낱말! 시간 안에 맞히면 망치 +1</span><b class="bonus-sec">10.0초</b>
+          <div class="bonus-track"><div class="bonus-fill"></div></div>
+        </div>
+        <div id="boardOuter" class="board-outer">
+          <div id="board" class="board"></div>
+          <canvas id="fxCanvas" class="fx-canvas"></canvas>
+        </div>
+        <div id="vkbd" class="vkbd hidden" aria-label="화면 키보드"></div>
+        <p class="help">칸을 누르고 바로 입력 · 같은 칸을 다시 누르면 가로/세로 전환 · <kbd>Enter</kbd> 다음 낱말 · 방향키 이동
+          · <button id="kbdToggle" class="link-btn inline">⌨ 화면 키보드</button></p>
+      </section>
+
+      <aside class="clues">
+        <div class="clue-col">
+          <h2><span class="dir-tag">→</span> 가로</h2>
+          <ol id="acrossList" class="clue-list"></ol>
+        </div>
+        <div class="clue-col">
+          <h2><span class="dir-tag">↓</span> 세로</h2>
+          <ol id="downList" class="clue-list"></ol>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <!-- 승리 화면 -->
+  <section id="winScreen" class="overlay">
+    <canvas id="confetti"></canvas>
+    <div class="win-card">
+      <div class="trophy">🏆</div>
+      <h2 class="win-title"><span>완</span><span>성</span><span>!</span></h2>
+      <p id="winText" class="win-text"></p>
+      <p id="winRecord" class="win-record"></p>
+      <div class="win-links"><button id="copyLink" class="link-btn">🔗 이 문제 링크 복사</button><button id="winStats" class="link-btn">📊 순위 보기</button></div>
+      <p class="win-q">한 번 더 플레이할까요?</p>
+      <div class="win-actions">
+        <button id="againBtn" class="btn primary">다시 플레이</button>
+        <button id="changeBtn" class="btn ghost">난이도 바꾸기</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 검증 모드 -->
+  <section id="verifyScreen" class="overlay">
+    <div class="verify-card">
+      <div class="verify-head">
+        <h2>검증 모드</h2>
+        <button id="verifyClose" class="btn ghost">닫기</button>
+      </div>
+      <div id="verifyBody" class="verify-body">검증 중…</div>
+    </div>
+  </section>
+
+  <!-- 사용자 메뉴 -->
+  <div id="userMenu" class="user-menu hidden" role="menu">
+    <div class="menu-head">👤 <span class="menu-name"></span></div>
+    <button data-act="rename" role="menuitem">✏️ 이름 바꾸기</button>
+    <button data-act="records" role="menuitem">📜 내 기록 보기</button>
+    <button data-act="stats" role="menuitem">📊 통계</button>
+  </div>
+
+  <!-- 새 퍼즐 난이도 선택 -->
+  <div id="newMenu" class="user-menu new-menu hidden" role="menu">
+    <div class="menu-head">새 퍼즐 난이도</div>
+    <button data-mode="easy" role="menuitem"><span class="nm-icon">🌱</span><span><b>이지</b><small>글자 5개 공개</small></span></button>
+    <button data-mode="normal" role="menuitem"><span class="nm-icon">🌿</span><span><b>일반</b><small>보통 난이도</small></span></button>
+    <button data-mode="hard" role="menuitem"><span class="nm-icon">🌳</span><span><b>하드</b><small>5개 단어에 힌트 없음</small></span></button>
+    <p id="newMenuWarn" class="menu-warn hidden">⚠️ 지금 풀던 퍼즐은 이어하기 목록에서 새 퍼즐로 바뀝니다. (문제 링크로는 다시 풀 수 있어요)</p>
+  </div>
+
+  <!-- 내 기록 / 통계 -->
+  <section id="panelScreen" class="overlay">
+    <div class="panel-card">
+      <div class="panel-head">
+        <h2 id="panelTitle"></h2>
+        <button id="panelClose" class="btn ghost">닫기</button>
+      </div>
+      <nav id="panelTabs" class="panel-tabs"></nav>
+      <div id="panelBody" class="panel-body"></div>
+    </div>
+  </section>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="/js/words.js"></script>
+  <script src="/js/hangul.js"></script>
+  <script src="/js/generator.js"></script>
+  <script src="/js/verify.js"></script>
+  <script src="/js/game.js"></script>
+</body>
+</html>
