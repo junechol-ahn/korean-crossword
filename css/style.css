@@ -303,6 +303,12 @@ kbd { background: var(--card); border: 1px solid var(--line); border-radius: 4px
 @keyframes jump { 0%, 60%, 100% { transform: none; } 30% { transform: translateY(-12px); } }
 .win-text { color: var(--ink-soft); margin: 0 0 6px; line-height: 1.6; }
 .win-q { font-weight: 700; margin: 16px 0 14px; }
+.win-close {
+  position: absolute; top: 12px; right: 14px; width: 34px; height: 34px; border-radius: 50%;
+  border: none; background: transparent; color: var(--ink-soft); font-size: 18px; cursor: pointer;
+}
+.win-close:hover { background: var(--line); color: var(--ink); }
+#viewBoardBtn { margin-top: 14px; }
 .win-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 
 /* ---------- 검증 모드 ---------- */
