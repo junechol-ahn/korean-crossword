@@ -419,6 +419,16 @@
   $('#homeBtn').addEventListener('click', goHome);
   $('#againBtn').addEventListener('click', function () { hideWin(); newGame(mode); });
   $('#changeBtn').addEventListener('click', function () { hideWin(); goHome(); });
+  // 팝업만 닫고 완성된 판을 그대로 확인
+  function viewBoard() {
+    hideWin();
+    if (S && S.cellEls) S.cellEls.forEach(function (row) { row.forEach(function (d) { if (d) { d.classList.remove('party'); d.style.animationDelay = ''; } }); });
+  }
+  $('#winClose').addEventListener('click', viewBoard);
+  $('#viewBoardBtn').addEventListener('click', viewBoard);
+  el.win.addEventListener('click', function (e) { if (e.target === el.win) viewBoard(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && el.win.classList.contains('show')) viewBoard(); });
+  $('#resultBtn').addEventListener('click', function () { el.win.classList.add('show'); });
   $('#copyLink').addEventListener('click', function () {
     const link = location.origin + '/p/' + S.p.id;
     (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject()).then(
@@ -518,6 +528,7 @@
   /* ================= 게임 시작 / 복원 ================= */
   function startPuzzle(puzzle, saved, opts) {
     opts = opts || {};
+    $('#resultBtn').classList.add('hidden');
     stopTimer(); stopBonusTimer();
     mode = puzzle.mode;
     const rows = puzzle.rows, cols = puzzle.cols;
@@ -1342,7 +1353,7 @@
         $('#winRecord').textContent = (ME ? ME.name : '') + ' 님의 기록으로 저장했어요.';
       } catch (e) { $('#winRecord').textContent = '기록 저장 실패: ' + e.message; }
     }
-    setTimeout(function () { el.win.classList.add('show'); confetti(); }, 1100);
+    setTimeout(function () { el.win.classList.add('show'); $('#resultBtn').classList.remove('hidden'); confetti(); }, 1100);
   }
   function hideWin() { el.win.classList.remove('show'); confettiStop = true; }
 

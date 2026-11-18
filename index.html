@@ -73,6 +73,7 @@
       </div>
       <div class="actions">
         <button class="user-chip small" title="이름 바꾸기 · 내 기록 · 통계">👤 <span class="user-name">…</span> <span class="caret">▾</span></button>
+        <button id="resultBtn" class="btn ghost hidden" title="완성 결과 다시 보기">🏆 결과</button>
         <button id="newBtn" class="btn ghost" aria-haspopup="menu">새 퍼즐 <span class="caret">▾</span></button>
         <button id="homeBtn" class="btn ghost">처음으로</button>
       </div>
@@ -119,6 +120,7 @@
   <section id="winScreen" class="overlay">
     <canvas id="confetti"></canvas>
     <div class="win-card">
+      <button id="winClose" class="win-close" aria-label="닫고 판 보기" title="닫고 판 보기">✕</button>
       <div class="trophy">🏆</div>
       <h2 class="win-title"><span>완</span><span>성</span><span>!</span></h2>
       <p id="winText" class="win-text"></p>
@@ -129,6 +131,7 @@
         <button id="againBtn" class="btn primary">다시 플레이</button>
         <button id="changeBtn" class="btn ghost">난이도 바꾸기</button>
       </div>
+      <button id="viewBoardBtn" class="link-btn">닫고 내가 푼 판 보기</button>
     </div>
   </section>
 
