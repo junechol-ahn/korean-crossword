@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>관리자 · 낱말 크로스워드</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="admin-page">
+  <header class="topbar">
+    <div class="brand">낱말 크로스워드 <span class="admin-tag">관리자</span></div>
+    <div class="stats"></div>
+    <button id="logoutBtn" class="btn ghost hidden">로그아웃</button>
+    <a class="btn ghost" href="/">게임으로</a>
+  </header>
+
+  <main class="admin-main">
+    <!-- 로그인 -->
+    <section id="loginBox" class="admin-card login-card hidden">
+      <h2>관리자 로그인</h2>
+      <p class="muted">서버에 설정한 관리자 토큰(<code>ADMIN_TOKEN</code>)을 입력하세요. 이 탭을 닫으면 로그아웃됩니다.</p>
+      <form id="loginForm">
+        <input id="tokenInput" class="search plain" type="password" autocomplete="current-password" placeholder="관리자 토큰" required>
+        <button class="btn primary" type="submit">로그인</button>
+      </form>
+      <p id="loginMsg" class="admin-msg bad hidden"></p>
+    </section>
+
+    <!-- 기록 관리 -->
+    <section id="recordsBox" class="admin-card hidden">
+      <div class="admin-head">
+        <h2>클리어 기록</h2>
+        <span id="totalInfo" class="muted"></span>
+      </div>
+      <div id="userFilter" class="user-filter hidden">
+        <span>👤 <b id="ufName"></b> 님의 기록만 보는 중 · <span id="ufCount"></span></span>
+        <span class="uf-actions">
+          <button id="ufDeleteAll" class="btn danger sm">이 사용자 기록 모두 삭제</button>
+          <button id="ufClear" class="btn ghost sm">필터 해제</button>
+        </span>
+      </div>
+      <div class="stat-ctrl">
+        <input id="q" class="search plain" type="search" placeholder="문제 ID 또는 사용자 이름으로 검색">
+        <select id="mode" class="sel">
+          <option value="">모든 난이도</option>
+          <option value="easy">이지</option>
+          <option value="normal">일반</option>
+          <option value="hard">하드</option>
+        </select>
+      </div>
+      <div class="tbl-wrap">
+        <table class="stat-table">
+          <thead><tr><th>날짜</th><th>문제 ID</th><th>난이도</th><th>사용자</th><th>클리어 시간</th><th>망치</th><th></th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <p id="emptyNote" class="empty-note muted hidden">조건에 맞는 기록이 없어요.</p>
+      <button id="moreBtn" class="btn ghost more-btn hidden">더 보기</button>
+      <p class="foot-note muted">삭제한 기록은 되돌릴 수 없어요. 순위표와 통계에는 바로 반영됩니다.</p>
+    </section>
+  </main>
+
+  <div id="toast" class="toast"></div>
+  <script src="/js/admin.js"></script>
+</body>
+</html>

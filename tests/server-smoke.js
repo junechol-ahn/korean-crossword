@@ -4,6 +4,8 @@ const os = require('os');
 const fs = require('fs');
 process.env.CROSSWORD_DATA = fs.mkdtempSync(path.join(os.tmpdir(), 'cw-test-'));
 process.env.TRUST_PROXY = '1';   // 테스트에서는 X-Forwarded-For 로 여러 접속 IP를 흉내 낸다
+const ADMIN = 'test-admin-token-0123456789';
+process.env.ADMIN_TOKEN = ADMIN;
 const { server, store } = require('../server.js');
 
 function check(name, cond, detail) {
@@ -134,6 +136,56 @@ server.listen(0, async () => {
     // 이름을 바꾸면 순위표에도 새 이름
     await j('PUT', '/api/me', { name: '단어여왕' });
     check('[통계] 이름 변경이 순위표에 반영', (await j('GET', '/api/stats/modes')).body.modes.easy.top[0].name === '단어여왕');
+
+    /* ---------- 관리자 ---------- */
+    const adm = (m, u, ip, tok) => j(m, u, null, { 'X-Forwarded-For': ip || '10.8.0.1', Authorization: 'Bearer ' + (tok === undefined ? ADMIN : tok) }, 'none');
+    const usersBefore = store.counts().users;
+    const page2 = await fetch(base + '/admin');
+    check('[관리자] /admin 페이지 제공', page2.status === 200 && (await page2.text()).includes('관리자 로그인'));
+    check('[관리자] 토큰 없으면 401', (await j('GET', '/api/admin/records', null, { 'X-Forwarded-For': '10.8.0.2' }, 'none')).status === 401);
+    check('[관리자] 틀린 토큰은 401', (await adm('GET', '/api/admin/session', '10.8.0.2', 'wrong-token-wrong-token')).status === 401);
+    const sess = await adm('GET', '/api/admin/session');
+    check('[관리자] 올바른 토큰으로 인증 + 쿠키·사용자를 만들지 않음', sess.status === 200 && !sess.setCookie && store.counts().users === usersBefore);
+    const all = (await adm('GET', '/api/admin/records')).body;
+    check('[관리자] 전체 기록 조회 (최근순, 기록 ID·사용자 포함)', all.total === 7 && all.records[0].id > all.records[1].id && all.records.every((r) => r.id && r.userId && r.userName),
+      `${all.total}건`);
+    const byPz = (await adm('GET', '/api/admin/records?q=' + pz.id.toLowerCase())).body;
+    check('[관리자] 문제 ID로 검색 (대소문자 무관)', byPz.total === 3 && byPz.records.every((r) => r.puzzleId === pz.id));
+    const byName = (await adm('GET', '/api/admin/records?q=' + encodeURIComponent('비이'))).body;
+    check('[관리자] 사용자 이름으로 검색', byName.total === 3 && byName.records.every((r) => r.userName === '비이'));
+    const byOld = (await adm('GET', '/api/admin/records?q=' + encodeURIComponent('단어왕'))).body;
+    check('[관리자] 클리어 당시 이름으로도 검색 (현재 이름도 함께)', byOld.total === 2 && byOld.records.every((r) => r.userName === '단어여왕' && r.nameAtClear === '단어왕'));
+    check('[관리자] 검색어의 % 는 와일드카드가 아님', (await adm('GET', '/api/admin/records?q=%25')).body.total === 0);
+    check('[관리자] 난이도 필터', (await adm('GET', '/api/admin/records?mode=hard')).body.total === 2);
+
+    // A(에이)의 pz 1등 기록(100초) 삭제 → 순위표에 바로 반영
+    const aRec = byPz.records.find((r) => r.userName === '에이');
+    const del = await adm('DELETE', '/api/admin/records/' + aRec.id);
+    check('[관리자] 기록 한 건 삭제', del.status === 200 && del.body.deleted === 1);
+    const board2 = (await j('GET', '/api/stats/puzzles/' + pz.id)).body.board;
+    check('[관리자] 삭제가 문제 순위표에 바로 반영', board2.map((b) => b.name).join(',') === '단어여왕,비이', board2.map((b) => b.name).join(','));
+    check('[관리자] 없는 기록 삭제는 404', (await adm('DELETE', '/api/admin/records/' + aRec.id)).status === 404);
+
+    const bId = byName.records[0].userId;
+    const bOnly = (await adm('GET', '/api/admin/records?user=' + bId)).body;
+    check('[관리자] 사용자 한 명의 기록만 보기', bOnly.total === 3 && bOnly.user.name === '비이');
+    const delAll = await adm('DELETE', '/api/admin/users/' + bId + '/records');
+    check('[관리자] 사용자 기록 모두 삭제', delAll.body.deleted === 3 && (await adm('GET', '/api/admin/records?user=' + bId)).body.total === 0);
+    check('[관리자] 다른 사용자 기록은 그대로', (await adm('GET', '/api/admin/records')).body.total === 3);
+    check('[관리자] 없는 사용자는 404', (await adm('DELETE', '/api/admin/users/no-such-user/records')).status === 404);
+    check('[관리자] 일반 API로는 관리자 기능에 접근 불가 (쿠키만으로는 401)', (await j('DELETE', '/api/admin/records/1')).status === 401);
+
+    // 인증 실패 제한: 같은 IP에서 10번 틀리면 올바른 토큰도 429
+    for (let i = 0; i < 10; i++) await adm('GET', '/api/admin/session', '10.8.9.9', 'bad-token-' + i);
+    check('[관리자] 인증 실패 10번 뒤 차단 (429)', (await adm('GET', '/api/admin/session', '10.8.9.9')).status === 429);
+    check('[관리자] 차단은 그 IP에만 적용', (await adm('GET', '/api/admin/session', '10.8.9.10')).status === 200);
+
+    const saved = process.env.ADMIN_TOKEN;
+    process.env.ADMIN_TOKEN = 'short';
+    check('[관리자] ADMIN_TOKEN 이 16자 미만이면 기능 꺼짐 (404)', (await adm('GET', '/api/admin/session', null, 'short')).status === 404);
+    delete process.env.ADMIN_TOKEN;
+    check('[관리자] ADMIN_TOKEN 이 없으면 기능 꺼짐 (404)', (await adm('GET', '/api/admin/session')).status === 404);
+    process.env.ADMIN_TOKEN = saved;
   } catch (e) {
     console.error(e); process.exitCode = 1;
   }

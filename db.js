@@ -227,6 +227,28 @@ function open(dataDir) {
         })
       };
     },
+    /* ---------- 관리자 ---------- */
+    // 기록 검색: q 는 문제 ID 또는 사용자 이름(현재 이름·클리어 당시 이름) 일부, userId 는 한 사용자만
+    adminRecords: function (opts) {
+      const where = [], args = [];
+      if (opts.q) {
+        const like = '%' + String(opts.q).replace(/[\\%_]/g, '\\$&') + '%';
+        where.push("(r.puzzle_id LIKE ? ESCAPE '\\' OR u.name LIKE ? ESCAPE '\\' OR r.name LIKE ? ESCAPE '\\')");
+        args.push(like.toUpperCase(), like, like);
+      }
+      if (opts.mode) { where.push('r.mode = ?'); args.push(opts.mode); }
+      if (opts.userId) { where.push('r.user_id = ?'); args.push(opts.userId); }
+      const w = where.length ? 'WHERE ' + where.join(' AND ') : '';
+      const rows = db.prepare(`SELECT r.id AS id, r.user_id AS userId, u.name AS userName, r.name AS nameAtClear, r.puzzle_id AS puzzleId,
+          r.mode AS mode, r.time_ms AS timeMs, r.hammers_used AS hammersUsed, r.at AS at
+        FROM records r JOIN users u ON u.id = r.user_id ${w} ORDER BY r.at DESC, r.id DESC LIMIT ? OFFSET ?`)
+        .all(...args, opts.limit, opts.offset);
+      const total = db.prepare(`SELECT COUNT(*) AS n FROM records r JOIN users u ON u.id = r.user_id ${w}`).get(...args).n;
+      return { rows: rows, total: total };
+    },
+    getUser: function (id) { return db.prepare('SELECT id, name FROM users WHERE id = ?').get(id) || null; },
+    deleteRecord: function (id) { return Number(db.prepare('DELETE FROM records WHERE id = ?').run(id).changes); },
+    deleteUserRecords: function (userId) { return Number(db.prepare('DELETE FROM records WHERE user_id = ?').run(userId).changes); },
     counts: function () {
       const c = function (t) { return db.prepare('SELECT COUNT(*) AS n FROM ' + t).get().n; };
       return { users: c('users'), puzzles: c('puzzles'), progress: c('progress'), records: c('records') };

@@ -139,7 +139,8 @@ function readBody(req, limit) {
 const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon' };
 function serveFile(res, rel) {
   const file = path.normalize(path.join(ROOT, rel));
-  const okDir = ['css', 'js'].some(function (d) { return file.startsWith(path.join(ROOT, d) + path.sep); }) || file === path.join(ROOT, 'index.html');
+  const okDir = ['css', 'js'].some(function (d) { return file.startsWith(path.join(ROOT, d) + path.sep); }) ||
+    file === path.join(ROOT, 'index.html') || file === path.join(ROOT, 'admin.html');
   if (!okDir) { res.writeHead(404); return res.end('Not found'); }
   fs.readFile(file, function (err, buf) {
     if (err) { res.writeHead(404); return res.end('Not found'); }
@@ -148,7 +149,67 @@ function serveFile(res, rel) {
   });
 }
 
+/*
+ * 관리자 API (/api/admin/*)
+ *  - 환경 변수 ADMIN_TOKEN(16자 이상)을 설정해야 켜진다. 없으면 404.
+ *  - 요청마다 "Authorization: Bearer <ADMIN_TOKEN>" 헤더로 인증 (쿠키를 쓰지 않으므로 CSRF 걱정 없음)
+ *  - 같은 IP에서 인증 실패가 15분 안에 10번 넘으면 15분 동안 막는다
+ *  - 관리자 요청으로는 일반 사용자를 만들지 않는다
+ */
+const ADMIN_MIN_LEN = 16;
+const ADMIN_FAIL_MAX = 10, ADMIN_FAIL_WINDOW = 15 * 60 * 1000;
+const adminFails = new Map(); // ip -> { n, first }
+function adminToken() {
+  const t = process.env.ADMIN_TOKEN || '';
+  return t.length >= ADMIN_MIN_LEN ? t : '';
+}
+function sha256(s) { return crypto.createHash('sha256').update(String(s)).digest(); }
+function adminAuth(req) {
+  const ip = clientIp(req), now = Date.now();
+  if (adminFails.size > 1000) adminFails.forEach(function (v, k) { if (now - v.first > ADMIN_FAIL_WINDOW) adminFails.delete(k); });
+  const f = adminFails.get(ip);
+  if (f && now - f.first > ADMIN_FAIL_WINDOW) adminFails.delete(ip);
+  else if (f && f.n >= ADMIN_FAIL_MAX) return 429;
+  const m = String(req.headers.authorization || '').match(/^Bearer\s+(.+)$/);
+  if (m && crypto.timingSafeEqual(sha256(m[1].trim()), sha256(adminToken()))) { adminFails.delete(ip); return 200; }
+  const cur = adminFails.get(ip) || { n: 0, first: now };
+  cur.n++; adminFails.set(ip, cur);
+  return 401;
+}
+
+async function handleAdmin(req, res, url) {
+  if (!adminToken()) return send(res, 404, { error: '관리자 기능이 꺼져 있어요. 서버에 ADMIN_TOKEN(16자 이상)을 설정해 주세요.' });
+  const auth = adminAuth(req);
+  if (auth === 429) return send(res, 429, { error: '인증 실패가 너무 많아요. 15분 뒤에 다시 시도해 주세요.' });
+  if (auth !== 200) return send(res, 401, { error: '관리자 토큰이 올바르지 않아요.' });
+  const p = url.pathname, m = req.method;
+  const intParam = function (k, def, max) { const v = parseInt(url.searchParams.get(k), 10); return Math.max(0, Math.min(max, isNaN(v) ? def : v)); };
+
+  if (p === '/api/admin/session' && m === 'GET') return send(res, 200, { ok: true });
+  if (p === '/api/admin/records' && m === 'GET') {
+    const q = String(url.searchParams.get('q') || '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 40);
+    const mode = MODES.indexOf(url.searchParams.get('mode')) >= 0 ? url.searchParams.get('mode') : '';
+    const userId = String(url.searchParams.get('user') || '');
+    if (userId && !/^[\w-]{1,64}$/.test(userId)) return send(res, 400, { error: 'bad user' });
+    const r = store.adminRecords({ q: q, mode: mode, userId: userId, limit: intParam('limit', 50, 200), offset: intParam('offset', 0, 1e9) });
+    return send(res, 200, { records: r.rows, total: r.total, user: userId ? store.getUser(userId) : null });
+  }
+  const dr = p.match(/^\/api\/admin\/records\/(\d{1,15})$/);
+  if (dr && m === 'DELETE') {
+    const n = store.deleteRecord(+dr[1]);
+    if (!n) return send(res, 404, { error: '기록을 찾을 수 없어요.' });
+    return send(res, 200, { deleted: n });
+  }
+  const du = p.match(/^\/api\/admin\/users\/([\w-]{1,64})\/records$/);
+  if (du && m === 'DELETE') {
+    if (!store.getUser(du[1])) return send(res, 404, { error: '사용자를 찾을 수 없어요.' });
+    return send(res, 200, { deleted: store.deleteUserRecords(du[1]) });
+  }
+  return send(res, 404, { error: 'not found' });
+}
+
 async function handleApi(req, res, url) {
+  if (url.pathname.startsWith('/api/admin/')) return handleAdmin(req, res, url);
   const u = getUser(req, res);
   const p = url.pathname;
   const m = req.method;
@@ -230,11 +291,16 @@ const server = http.createServer(function (req, res) {
     return;
   }
   if (url.pathname === '/' || /^\/p\/[A-Za-z0-9]+\/?$/.test(url.pathname)) return serveFile(res, 'index.html');
+  if (url.pathname === '/admin' || url.pathname === '/admin/') return serveFile(res, 'admin.html');
   serveFile(res, decodeURIComponent(url.pathname).replace(/^\/+/, ''));
 });
 
 if (require.main === module) {
-  server.listen(PORT, function () { console.log('낱말 크로스워드 서버: http://localhost:' + PORT); });
+  server.listen(PORT, function () {
+    console.log('낱말 크로스워드 서버: http://localhost:' + PORT);
+    if (adminToken()) console.log('관리자 화면: http://localhost:' + PORT + '/admin');
+    else if (process.env.ADMIN_TOKEN) console.warn('ADMIN_TOKEN 이 ' + ADMIN_MIN_LEN + '자보다 짧아 관리자 기능을 끕니다.');
+  });
 }
 module.exports = { server: server, store: store };
 function shutdown() { server.close(); try { store.close(); } catch (e) { /* 이미 닫힘 */ } process.exit(0); }

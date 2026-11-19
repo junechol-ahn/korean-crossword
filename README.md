@@ -21,6 +21,21 @@ npm test                  # 서버 테스트 + 퍼즐 생성 검증
 휴대폰처럼 IP가 바뀌어도 같은 사용자로 유지됩니다. 쿠키가 생기기 전에 IP로만 만들어진 사용자는 같은 IP에서 처음 접속할 때 이어받습니다.
 접속 IP는 `TRUST_PROXY` 설정에 따라 정합니다 (`fly` = Fly-Client-IP, `1` = X-Forwarded-For, 없음 = 소켓 주소).
 
+## 관리자 화면
+
+`/admin` 에서 클리어 기록을 검색하고 삭제할 수 있습니다 (문제 ID·사용자 이름 검색, 난이도 필터,
+기록 한 건 삭제, 한 사용자의 기록 모두 삭제). 삭제는 순위표·통계에 바로 반영되며 되돌릴 수 없습니다.
+
+- 환경 변수 `ADMIN_TOKEN`(16자 이상)을 설정해야 켜집니다. 없으면 `/api/admin/*` 는 404 입니다.
+- 로그인할 때 이 토큰을 입력합니다. 토큰은 그 브라우저 탭에만 보관되고(sessionStorage), 탭을 닫으면 로그아웃됩니다.
+- 같은 IP에서 인증에 15분 안에 10번 실패하면 15분 동안 막힙니다.
+- 로컬: `ADMIN_TOKEN=<토큰> node server.js` 후 `http://localhost:8765/admin`
+- Fly.io: 아래처럼 시크릿으로 설정합니다 (설정하면 서버가 다시 시작됩니다). 토큰은 저장소에 넣지 마세요.
+
+```bash
+fly secrets set ADMIN_TOKEN=$(openssl rand -base64 24) -a korean-crossword   # 값을 따로 안전하게 보관
+```
+
 ## Fly.io 배포 (GitHub Actions)
 
 `main` 브랜치에 push 하면 [.github/workflows/fly-deploy.yml](.github/workflows/fly-deploy.yml) 이
