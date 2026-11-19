@@ -192,6 +192,16 @@ server.listen(0, async () => {
   server.close();
 });
 
+// 배포 이미지: 서버가 내주는 최상위 HTML 페이지가 모두 Dockerfile 에서 복사되는지
+{
+  const root = path.join(__dirname, '..');
+  const docker = fs.readFileSync(path.join(root, 'Dockerfile'), 'utf8');
+  const copied = docker.split('\n').filter((l) => /^COPY\s/.test(l)).flatMap((l) => l.trim().split(/\s+/).slice(1, -1));
+  const pages = fs.readdirSync(root).filter((f) => f.endsWith('.html'));
+  const missing = pages.filter((f) => copied.indexOf(f) < 0);
+  check('Dockerfile 이 모든 HTML 페이지를 이미지에 복사', pages.length >= 2 && missing.length === 0, missing.length ? '빠짐: ' + missing.join(', ') : pages.join(', '));
+}
+
 // db.json → SQLite 이전 테스트
 {
   const Store = require('../db.js');

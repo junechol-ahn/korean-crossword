@@ -9,7 +9,7 @@ ENV NODE_ENV=production \
     TRUST_PROXY=fly
 
 # 외부 패키지가 없어 npm install 이 필요 없다
-COPY package.json server.js db.js index.html ./
+COPY package.json server.js db.js index.html admin.html ./
 COPY css ./css
 COPY js ./js
 
